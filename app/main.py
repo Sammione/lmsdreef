@@ -21,7 +21,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
-    allow_credentials=True,
+    allow_credentials=False, # Changed to False for better compatibility with allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -39,11 +39,10 @@ async def health_check():
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to InfraCredit LMS Chatbot API",
+        "message": "Welcome to InfraCredit LMS Unified Chatbot API",
         "docs": "/docs",
         "endpoints": {
-            "general_bot": "/api/chat/general",
-            "course_bot": "/api/chat/course"
+            "chat": "/api/chat"
         }
     }
 

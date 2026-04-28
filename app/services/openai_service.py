@@ -20,32 +20,31 @@ def load_knowledge():
                 content += f.read()
     return content
 
-SYSTEM_PROMPT_GENERAL_TEMPLATE = """
-You are the General LMS Assistant for InfraCredit. 
-Your role is to help users with:
-1. Information about available courses.
-2. Understanding Standard Operating Procedures (SOPs).
-3. Answering Frequently Asked Questions (FAQs).
-4. General platform navigation.
+SYSTEM_PROMPT_UNIFIED = """
+You are the Official LMS Assistant for InfraCredit. 
+Your role is to provide a comprehensive support experience for all users on the LMS platform.
 
-Note: Since the LMS API currently does not have explicit endpoints for SOPs/FAQs, 
-the information below is retrieved from our internal Knowledge Base (KB) files.
+You can help with:
+1. **Course Discovery**: Search for and provide details about available courses.
+2. **Course Content & Structure**: Explain what is covered in specific courses, including modules and assessments.
+3. **User Achievements**: Retrieve information about a user's certificates and completions.
+4. **Platform Statistics**: Provide overall platform stats, per-course completion stats, or monthly enrollment trends.
+5. **Course-Specific Resources**: Access FAQs, glossary terms, SOPs, and learning materials specifically for a course.
+6. **Platform Guidance**: Help users understand Standard Operating Procedures (SOPs) and answer Frequently Asked Questions (FAQs) using the internal knowledge base.
 
-Below is the internal knowledge base content:
+**Strict Grounding Rules**:
+1. **Source Only**: Answer questions ONLY using the information retrieved from the LMS tools (courses, certificates) or the provided Knowledge Base (SOPs, FAQs). 
+2. **No Hallucination**: If the information is not explicitly present in the tool outputs or the KB content provided above, do NOT make up an answer.
+3. **Unknown Information**: If you cannot find the answer, state clearly: "I'm sorry, I don't have that information in the LMS or my internal records. Please contact the HR or IT department for further assistance."
+4. **Tool Priority**: Always prefer data from a tool call (like get_course_details) over your general training data regarding InfraCredit specific details.
+5. **No Assumptions**: Do not assume course dates, costs, or requirements if they are not shown in the API response.
+
+**Below is the internal knowledge base content (SOPs/FAQs)**:
 {knowledge_base}
 
-If you don't know the answer, advise the user to contact the HR or IT department.
-Be professional, helpful, and concise.
-"""
-
-SYSTEM_PROMPT_COURSE = """
-You are the Course-Only Assistant for InfraCredit. 
-Your role is STRICTLY limited to answering questions about courses.
-If a user asks about SOPs, FAQs (not related to courses), or other platform issues, 
-politely inform them that you are only programmed to handle course-related queries 
-and they should use the General Assistant for other matters.
-
-Be professional and focus on course content, enrollment, and requirements.
+**Guidelines**:
+- Be professional, factual, and concise.
+- If a user asks about their own data (like certificates), use the get_my_certificates tool first.
 """
 
 class OpenAIService:
@@ -68,7 +67,123 @@ class OpenAIService:
                 "type": "function",
                 "function": {
                     "name": "get_course_details",
-                    "description": "Get detailed information about a specific course",
+                    "description": "Get detailed information about a specific course, including its structure and assessments",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "course_id": {"type": "string", "description": "The unique ID of the course"}
+                        },
+                        "required": ["course_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_assessments",
+                    "description": "Get assessments and full structure for a specific course",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "course_id": {"type": "string", "description": "The unique ID of the course"}
+                        },
+                        "required": ["course_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_my_certificates",
+                    "description": "Get a list of certificates earned by the current user",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_overall_stats",
+                    "description": "Get overall platform statistics including total learners, enrollments, and certificates",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_per_course_stats",
+                    "description": "Get completion statistics for each course",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_monthly_enrollments",
+                    "description": "Get monthly enrollment counts to see trends over time",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "months": {"type": "integer", "description": "Number of months to look back (default 6)"}
+                        }
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_course_faqs",
+                    "description": "Get Frequently Asked Questions specifically for a given course",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "course_id": {"type": "string", "description": "The unique ID of the course"}
+                        },
+                        "required": ["course_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_course_glossary",
+                    "description": "Get glossary terms and definitions for a specific course",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "course_id": {"type": "string", "description": "The unique ID of the course"}
+                        },
+                        "required": ["course_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_course_sops",
+                    "description": "Get Standard Operating Procedures (SOPs) related to a specific course",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "course_id": {"type": "string", "description": "The unique ID of the course"}
+                        },
+                        "required": ["course_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_course_materials",
+                    "description": "Get learning materials (files, documents) for a specific course",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -80,13 +195,10 @@ class OpenAIService:
             }
         ]
 
-    async def chat(self, messages: list, bot_type: str = "general", lms_client=None):
-        if bot_type == "general":
-            logger.info("Loading internal knowledge for general bot")
-            knowledge = load_knowledge()
-            system_prompt = SYSTEM_PROMPT_GENERAL_TEMPLATE.format(knowledge_base=knowledge)
-        else:
-            system_prompt = SYSTEM_PROMPT_COURSE
+    async def chat(self, messages: list, bot_type: str = "unified", lms_client=None):
+        logger.info("Loading unified assistant context")
+        knowledge = load_knowledge()
+        system_prompt = SYSTEM_PROMPT_UNIFIED.format(knowledge_base=knowledge)
         
         # Prepend system prompt if not present
         if not messages or messages[0].get("role") != "system":
@@ -100,7 +212,7 @@ class OpenAIService:
                 messages=messages,
                 tools=self.tools if lms_client else None,
                 tool_choice="auto" if lms_client else None,
-                temperature=0.7
+                temperature=0.0
             )
         except Exception as e:
             logger.error(f"OpenAI completion error (first call): {str(e)}")
@@ -123,7 +235,25 @@ class OpenAIService:
                 if function_name == "get_courses":
                     function_response = await lms_client.get_courses(search=function_args.get("search"))
                 elif function_name == "get_course_details":
-                    function_response = await lms_client.get_course_details(course_id=function_args.get("course_id"))
+                    function_response = await lms_client.get_chatbot_course_details(course_id=function_args.get("course_id"))
+                elif function_name == "get_assessments":
+                    function_response = await lms_client.get_assessments(course_id=function_args.get("course_id"))
+                elif function_name == "get_my_certificates":
+                    function_response = await lms_client.get_my_certificates()
+                elif function_name == "get_overall_stats":
+                    function_response = await lms_client.get_overall_stats()
+                elif function_name == "get_per_course_stats":
+                    function_response = await lms_client.get_per_course_stats()
+                elif function_name == "get_monthly_enrollments":
+                    function_response = await lms_client.get_monthly_enrollments(months=function_args.get("months", 6))
+                elif function_name == "get_course_faqs":
+                    function_response = await lms_client.get_course_faqs(course_id=function_args.get("course_id"))
+                elif function_name == "get_course_glossary":
+                    function_response = await lms_client.get_course_glossary(course_id=function_args.get("course_id"))
+                elif function_name == "get_course_sops":
+                    function_response = await lms_client.get_course_sops(course_id=function_args.get("course_id"))
+                elif function_name == "get_course_materials":
+                    function_response = await lms_client.get_course_materials(course_id=function_args.get("course_id"))
                 else:
                     function_response = {"error": "Function not found"}
 
@@ -140,6 +270,7 @@ class OpenAIService:
                 second_response = await client.chat.completions.create(
                     model="gpt-4o",
                     messages=messages,
+                    temperature=0.0
                 )
                 return second_response.choices[0].message.content
             except Exception as e:
@@ -150,4 +281,3 @@ class OpenAIService:
 
 def get_openai_service():
     return OpenAIService()
-
