@@ -1,8 +1,0 @@
-Q: How do I reset my password?
-A: You can reset your password by clicking on the "Forgot Password" link on the login page. An email will be sent with instructions.
-
-Q: Who do I contact for technical support?
-A: Please email it-support@infracredit.com for any technical issues.
-
-Q: How can I access my certificate?
-A: Once a course is completed, you can download your certificate from the "My Certificates" section in your profile.
