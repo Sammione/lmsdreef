@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from typing import List, Optional
 import logging
@@ -21,14 +21,19 @@ class ChatResponse(BaseModel):
 @router.post("/", response_model=ChatResponse)
 async def chat(
     request: ChatRequest, 
+    authorization: Optional[str] = Header(None),
     openai_service: OpenAIService = Depends(get_openai_service),
     lms_client: LMSClient = Depends(get_lms_client)
 ):
     try:
-        logger.info("Received chat request")
+        logger.info(f"Received chat request. Authorization header present: {authorization is not None}")
         messages = [m.model_dump() for m in request.messages]
-        # Unified chat handles everything
-        response_text = await openai_service.chat(messages, lms_client=lms_client)
+        # Unified chat handles everything, passing the user's token
+        response_text = await openai_service.chat(
+            messages, 
+            lms_client=lms_client, 
+            user_token=authorization
+        )
         logger.info("Successfully generated chat response")
         return ChatResponse(response=response_text)
     except Exception as e:

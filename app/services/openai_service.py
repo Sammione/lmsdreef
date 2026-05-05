@@ -9,16 +9,6 @@ logger = logging.getLogger(__name__)
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-def load_knowledge():
-    knowledge_path = os.path.join(os.path.dirname(__file__), "..", "knowledge")
-    content = ""
-    for filename in ["faqs.txt", "sops.txt"]:
-        file_path = os.path.join(knowledge_path, filename)
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                content += f"\n--- {filename} ---\n"
-                content += f.read()
-    return content
 
 SYSTEM_PROMPT_UNIFIED = """
 You are the Official LMS Assistant for InfraCredit. 
@@ -29,18 +19,14 @@ You can help with:
 2. **Course Content & Structure**: Explain what is covered in specific courses, including modules and assessments.
 3. **User Achievements**: Retrieve information about a user's certificates and completions.
 4. **Platform Statistics**: Provide overall platform stats, per-course completion stats, or monthly enrollment trends.
-5. **Course-Specific Resources**: Access FAQs, glossary terms, SOPs, and learning materials specifically for a course.
-6. **Platform Guidance**: Help users understand Standard Operating Procedures (SOPs) and answer Frequently Asked Questions (FAQs) using the internal knowledge base.
+5. **Course-Specific Resources**: Access FAQs, glossary terms, SOPs, and learning materials specifically for a course using the provided LMS tools.
 
 **Strict Grounding Rules**:
-1. **Source Only**: Answer questions ONLY using the information retrieved from the LMS tools (courses, certificates) or the provided Knowledge Base (SOPs, FAQs). 
-2. **No Hallucination**: If the information is not explicitly present in the tool outputs or the KB content provided above, do NOT make up an answer.
-3. **Unknown Information**: If you cannot find the answer, state clearly: "I'm sorry, I don't have that information in the LMS or my internal records. Please contact the HR or IT department for further assistance."
+1. **Source Only**: Answer questions ONLY using the information retrieved from the LMS tools (courses, certificates, stats, materials). 
+2. **No Hallucination**: If the information is not explicitly present in the tool outputs, do NOT make up an answer.
+3. **Unknown Information**: If you cannot find the answer, state clearly: "I'm sorry, I don't have that information in the LMS records. Please contact the HR or IT department for further assistance."
 4. **Tool Priority**: Always prefer data from a tool call (like get_course_details) over your general training data regarding InfraCredit specific details.
 5. **No Assumptions**: Do not assume course dates, costs, or requirements if they are not shown in the API response.
-
-**Below is the internal knowledge base content (SOPs/FAQs)**:
-{knowledge_base}
 
 **Guidelines**:
 - Be professional, factual, and concise.
@@ -195,10 +181,8 @@ class OpenAIService:
             }
         ]
 
-    async def chat(self, messages: list, bot_type: str = "unified", lms_client=None):
-        logger.info("Loading unified assistant context")
-        knowledge = load_knowledge()
-        system_prompt = SYSTEM_PROMPT_UNIFIED.format(knowledge_base=knowledge)
+    async def chat(self, messages: list, bot_type: str = "unified", lms_client=None, user_token: str = None):
+        system_prompt = SYSTEM_PROMPT_UNIFIED
         
         # Prepend system prompt if not present
         if not messages or messages[0].get("role") != "system":
@@ -230,30 +214,30 @@ class OpenAIService:
                 function_name = tool_call.function.name
                 function_args = json.loads(tool_call.function.arguments)
                 
-                # Execute the appropriate LMS client method
+                # Execute the appropriate LMS client method with the user token
                 logger.info(f"Executing tool call: {function_name} with args: {function_args}")
                 if function_name == "get_courses":
-                    function_response = await lms_client.get_courses(search=function_args.get("search"))
+                    function_response = await lms_client.get_courses(search=function_args.get("search"), token=user_token)
                 elif function_name == "get_course_details":
-                    function_response = await lms_client.get_chatbot_course_details(course_id=function_args.get("course_id"))
+                    function_response = await lms_client.get_chatbot_course_details(course_id=function_args.get("course_id"), token=user_token)
                 elif function_name == "get_assessments":
-                    function_response = await lms_client.get_assessments(course_id=function_args.get("course_id"))
+                    function_response = await lms_client.get_assessments(course_id=function_args.get("course_id"), token=user_token)
                 elif function_name == "get_my_certificates":
-                    function_response = await lms_client.get_my_certificates()
+                    function_response = await lms_client.get_my_certificates(token=user_token)
                 elif function_name == "get_overall_stats":
-                    function_response = await lms_client.get_overall_stats()
+                    function_response = await lms_client.get_overall_stats(token=user_token)
                 elif function_name == "get_per_course_stats":
-                    function_response = await lms_client.get_per_course_stats()
+                    function_response = await lms_client.get_per_course_stats(token=user_token)
                 elif function_name == "get_monthly_enrollments":
-                    function_response = await lms_client.get_monthly_enrollments(months=function_args.get("months", 6))
+                    function_response = await lms_client.get_monthly_enrollments(months=function_args.get("months", 6), token=user_token)
                 elif function_name == "get_course_faqs":
-                    function_response = await lms_client.get_course_faqs(course_id=function_args.get("course_id"))
+                    function_response = await lms_client.get_course_faqs(course_id=function_args.get("course_id"), token=user_token)
                 elif function_name == "get_course_glossary":
-                    function_response = await lms_client.get_course_glossary(course_id=function_args.get("course_id"))
+                    function_response = await lms_client.get_course_glossary(course_id=function_args.get("course_id"), token=user_token)
                 elif function_name == "get_course_sops":
-                    function_response = await lms_client.get_course_sops(course_id=function_args.get("course_id"))
+                    function_response = await lms_client.get_course_sops(course_id=function_args.get("course_id"), token=user_token)
                 elif function_name == "get_course_materials":
-                    function_response = await lms_client.get_course_materials(course_id=function_args.get("course_id"))
+                    function_response = await lms_client.get_course_materials(course_id=function_args.get("course_id"), token=user_token)
                 else:
                     function_response = {"error": "Function not found"}
 
